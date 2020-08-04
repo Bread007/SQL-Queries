@@ -1,0 +1,76 @@
+SELECT 
+
+Item.Acctg_Dept_Nbr AS Dept_Nbr,
+Item.Acctg_Dept_Desc AS Dept_Desc,
+--mumd.EVENT_ID AS MUMD_Event, 
+--Event.MUMD_Event_Desc AS Event_Desc,
+--mumd.Item_qty_sign_code,
+--mumd.Transaction_Date AS Transaction_Date,
+EXTRACT (YEAR FROM mumd.Transaction_Date) AS Trans_Year,
+EXTRACT (MONTH FROM mumd.Transaction_Date) AS Trans_Month,
+
+CASE WHEN mumd.new_retail_amt - mumd.prev_retail_amt>0 THEN 'MU' ELSE 'MD' END AS MU_or_MD,
+
+CASE WHEN EXTRACT (DAY FROM mumd.Transaction_Date) <5 THEN 'First5Days' 
+            WHEN mumd.Transaction_Date > ADD_MONTHS(mumd.Transaction_Date - EXTRACT(DAY FROM mumd.Transaction_Date)+1, +1) -1 -5 THEN 'Last5Days' ELSE'Mid_Month' END AS Trans_Period,
+            
+            
+            
+
+
+/*CASE 
+        WHEN EVENT_ID IN  (5300,5515,5516,5531,5700,5813,1500,1518,1519,1533,1804,1900,1300,1515,1516,1531,1700,1813,5500,5518,5519,5533,5804,5900) THEN 'Soft'
+        WHEN mumd.EVENT_ID  IN (1001, 1002, 1003, 1106, 1202, 1401, 1505, 1510, 1525, 1539, 1600, 1705, 1802, 1803, 1805, 1814, 1816, 1820, 1821, 1822, 1824, 1825, 1826, 1829, 1832, 1836, 1839, 1842, 1845, 1846, 5004, 5100, 5101, 5102, 5103, 5104, 5105, 5107, 5201, 5402, 5517, 5801, 5808, 5811, 5815, 5818, 5823, 5827, 5828, 5830, 5833, 5835, 5837, 5838, 5840, 5841, 5843, 5844, 5902)THEN 'Hard'
+        ELSE 'Other'
+END AS MUMD_Event_Type,
+
+CASE
+    WHEN mumd.EVENT_ID  IN (1001, 1002, 1003, 1202, 1816, 5004, 5100, 5101, 5102, 5103, 5104, 5105, 5902, 5001, 5002, 5003, 5202, 5816, 1004, 1100, 1101, 1102, 1103, 1104, 1105, 1902,1300,5300) THEN '1'
+    ELSE '0'
+END AS HO_MUMD_Flag,
+
+CASE
+    WHEN mumd.EVENT_ID  IN (1700, 1300) THEN '1'
+    ELSE '0'
+END AS MUMD_Temp_Flag,*/
+
+SUM(((mumd.new_retail_amt-mumd.prev_retail_amt)* mumd.ACTUAL_ITEM_QTY)) AS AMOUNT
+
+FROM
+US_WM_VM.STORE_ITEM_EVENT_MUMD AS mumd,
+US_WM_VM.MUMD_EVENT_TXT AS Event,
+WW_CORE_DIM_VM.ITEM_DIM AS Item,
+WW_CORE_DIM_VM.STORE_DIM AS Store
+
+
+WHERE
+-----Joins-------------------------------------------------------------------------------------------------------------------------
+Event.mumd_event_code = mumd.event_id
+AND mumd.ITEM_NBR  = Item.MDS_FAM_ID   
+AND Store.store_nbr = mumd.store_nbr
+
+
+
+--Markdown Information------------------------------------------------------------------------------------------------
+
+--AND mumd.Transaction_Date = (CURRENT_DATE  - 5) 
+AND mumd.Transaction_Date BETWEEN  ADD_MONTHS(CURRENT_DATE - EXTRACT(DAY FROM CURRENT_DATE )+1, -25) AND (CURRENT_DATE) 
+
+AND mumd.Actual_Item_Qty <> 0 
+
+
+----Store Info--------------------------------------------------------------------------------------------------------------------
+AND Store.Subdiv_Nbr IN ('A', 'B', 'E', 'M', 'O')
+AND Store.State_Prov_Code NOT IN ('AK', 'HI')
+AND Store.Country_Code = 'US'
+AND Store.Current_Ind = 'Y'
+--AND Markdown.store_nbr IN (5152)
+
+------Item Information-------------------------------------------------------------
+AND Item.Current_Ind = 'Y'
+AND Item.Base_Div_Nbr = 1 
+AND Item.Country_Code = 'US'
+AND Item.Acctg_Dept_Nbr NOT IN (38,80,81,83,85,86,89,93,94,98)
+
+GROUP BY 1,2,3,4,5,6
+ORDER BY 1,2,3,4,5,6
